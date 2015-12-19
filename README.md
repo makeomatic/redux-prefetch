@@ -125,7 +125,7 @@ function prefetch({ dispatch, getState }, params) {
 // componentDidMount() is obviously only performed on the client. Because this state
 // will be already resolved on load, you need to make sure that necessary checks are performed
 // and async actions are not repeated again
-@fetch(prefetch)
+@fetch("root", prefetch)
 @connect(state => ({ meta: state.meta, user: state.user }))
 export default class App extends Component {
   static propTypes = {

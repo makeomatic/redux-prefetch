@@ -8,7 +8,7 @@ function prefetch({ dispatch, getState }, params) {
   return dispatch(dummy(parseInt(params.id || 30, 10)));
 }
 
-@fetch(prefetch)
+@fetch('root', prefetch)
 @connect(state => ({ meta: state.meta, user: state.user }))
 export default class App extends Component {
   static propTypes = {
