@@ -19,19 +19,26 @@ export default function fetch(_namespace, action, options = {}, getState = getSt
   const { withRef = false } = options;
 
   function createWaitFor(store) {
-    return function waitFor(dependency) {
-      const state = getState(store)[`${dependency}_fetching`];
-      if (!state) {
+    return function waitFor(...dependencies) {
+      const state = getState(store);
+      const states = dependencies
+        .map(dependency => state[`${dependency}_fetching`] && state[`${dependency}_fetching`].promise)
+        .filter(stateHolder => !!stateHolder);
+
+      if (states.length === 0) {
         return Promise.resolve();
       }
 
-      return Promise.resolve(state.promise).then(() => {
-        const result = getState(store)[`${dependency}_fetching`];
-        if (result.error) {
-          return Promise.reject(result.data);
-        }
+      return Promise.all(states).then(() => {
+        const nextState = getState(store);
+        return dependencies.map(dependency => {
+          const result = nextState[`${dependency}_fetching`];
+          if (result.error) {
+            return Promise.reject(result.data);
+          }
 
-        return result.data;
+          return result.data;
+        });
       });
     };
   }
