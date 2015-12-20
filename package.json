@@ -1,6 +1,6 @@
 {
   "name": "redux-prefetch",
-  "version": "0.1.10",
+  "version": "0.1.11",
   "description": "prefetch async state on the server for universal react apps built with redux",
   "main": "./lib/index.js",
   "scripts": {
