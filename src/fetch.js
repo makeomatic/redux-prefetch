@@ -1,8 +1,10 @@
+import Promise from 'bluebird';
 import React, { Component, PropTypes } from 'react';
 import hoistStatics from 'hoist-non-react-statics';
 import invariant from 'invariant';
 import storeShape from 'react-redux/lib/utils/storeShape';
-import { prefetchInit, prefetchSuccess, prefetchError } from './reducer.js';
+import { bindActionCreators } from 'redux';
+import { prefetchInit, prefetchSuccess, prefetchError, prefetchReset } from './reducer.js';
 
 function getDisplayName(WrappedComponent) {
   return WrappedComponent.displayName || WrappedComponent.name || 'Component';
@@ -12,31 +14,56 @@ function getStateDefault(store) {
   return store.getState().prefetching;
 }
 
-export default function fetch(namespace, action, options = {}, getState = getStateDefault) {
+export default function fetch(_namespace, action, options = {}, getState = getStateDefault) {
+  const namespace = `${_namespace}_fetching`;
   const { withRef = false } = options;
 
-  function fetchData(store, params) {
-    const state = getState(store)[namespace];
-    const result = action(store, params, state);
+  function createWaitFor(store) {
+    return function waitFor(dependency) {
+      const state = getState(store)[`${dependency}_fetching`];
+      if (!state) {
+        return Promise.resolve();
+      }
 
-    if (!state) {
-      store.dispatch(prefetchInit(namespace, result));
-      return result.reflect().then(data => {
-        let act;
-        let value;
-        if (data.isFulfilled()) {
-          act = prefetchSuccess;
-          value = data.value();
-        } else {
-          act = prefetchError;
-          value = data.reason();
+      return Promise.resolve(state.promise).then(() => {
+        const result = getState(store)[`${dependency}_fetching`];
+        if (result.error) {
+          return Promise.reject(result.data);
         }
 
-        return store.dispatch(act(namespace, value));
+        return result.data;
       });
+    };
+  }
+
+  function fetchData(store, params, state) {
+    // shortcut
+    if (state && state.fetching === false) {
+      return Promise[state.error ? 'reject' : 'resolve'](state.data);
     }
 
-    return result;
+    // this must either return a promise
+    // or null, then it will be marked as resolved
+    const promise = action({ ...store, waitFor: createWaitFor(store) }, params, state);
+
+    // this allows us to wait in other handlers
+    store.dispatch(prefetchInit(namespace, promise));
+
+    // wait for the action to complete and emit success/error events
+    return Promise.resolve(promise).reflect().then(data => {
+      let act;
+      let value;
+      if (data.isFulfilled()) {
+        act = prefetchSuccess;
+        value = data.value();
+      } else {
+        act = prefetchError;
+        value = data.reason();
+      }
+
+      store.dispatch(act(namespace, value));
+      return value;
+    });
   }
 
   return function wrapWithFetch(WrappedComponent) {
@@ -56,6 +83,7 @@ export default function fetch(namespace, action, options = {}, getState = getSta
       constructor(props, context) {
         super(props, context);
         this.store = props.store || context.store;
+        this.prefetchReset = bindActionCreators(prefetchReset, this.store.dispatch);
 
         invariant(this.store,
           `Could not find "store" in either the context or ` +
@@ -66,7 +94,11 @@ export default function fetch(namespace, action, options = {}, getState = getSta
       }
 
       componentDidMount() {
-        fetchData(this.store, this.props.params);
+        fetchData(this.store, this.props.params, this.getFetchProps());
+      }
+
+      getFetchProps() {
+        return getState(this.store)[namespace];
       }
 
       getWrappedInstance() {
@@ -84,7 +116,7 @@ export default function fetch(namespace, action, options = {}, getState = getSta
       render() {
         const ref = withRef ? 'wrappedInstance' : null;
         return (
-          <WrappedComponent {...this.props} ref={ref} />
+          <WrappedComponent {...this.props} fetch={this.getFetchProps()} prefetchReset={this.prefetchReset} ref={ref} />
         );
       }
     }
