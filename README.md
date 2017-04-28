@@ -1,5 +1,7 @@
 # Redux prefetch
 
+[![Greenkeeper badge](https://badges.greenkeeper.io/makeomatic/redux-prefetch.svg)](https://greenkeeper.io/)
+
 Allows universal server-side rendering to be performed without much hassle.
 Exposes `@fetch` decorator and `storeEnchancer`, which keeps track of unresolved promises.
 Add `.resolve` function to store
