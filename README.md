@@ -109,7 +109,6 @@ import React, { Component, PropTypes } from 'react';
 import { connect } from 'react-redux';
 import DocumentMeta from 'react-document-meta';
 import { dummy } from './modules/user' ;
-import { fetch } from 'redux-prefetch';
 
 function prefetch({ dispatch, getState }, params) {
   const timeout = parseInt(params.id || 30, 10);
